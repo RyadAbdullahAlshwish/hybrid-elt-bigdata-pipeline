@@ -22,7 +22,7 @@ The pipeline implements an automated **File Router** that dynamically selects th
 5. **Database-Level Schema Enforcement**: Employs MongoDB `$jsonSchema` validation rules alongside a unique compound index on `order_id` in `orders_validated`.
 6. **Strict Idempotency via Bulk Upserts**: Utilizes atomic `bulk_write` operations with upserts to eliminate duplicate records during repeated executions, tracking `inserted_count`, `updated_count`, and `unchanged_count`.
 7. **Mathematical Consistency Rule**:
-   $$\mathrm{run\_raw\_count} = \mathrm{run\_valid\_count} + \mathrm{run\_corrected\_count} + \mathrm{run\_quarantine\_count}$$
+   `run_raw_count` = `run_valid_count` + `run_corrected_count` + `run_quarantine_count`
 8. **Automated Error Case Counting**: Dynamically compiles quarantine breakdown metrics inside `reports/results.json` and human-readable `reports/results.md`.
 ---
 
@@ -231,4 +231,7 @@ Every execution logs performance and correctness metrics into `reports/results.j
 ```
 
 Mathematical consistency is guaranteed on every run:
-$$\mathrm{rows\_read} = 100{,}000 = 82{,}140 + 12{,}860 + 5{,}000$$
+
+$$\mathit{rows\_read} = 100{,}000 = 82{,}140 + 12{,}860 + 5{,}000$$
+
+
