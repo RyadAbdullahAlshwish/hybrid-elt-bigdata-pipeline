@@ -32,18 +32,17 @@ def setup_mongodb():
         # ----------------------------------------------------
         # 2. Validated Collection Indexes & Schema Validation
         # ----------------------------------------------------
-        if VALIDATED_COLLECTION in db.list_collection_names():
-            db[VALIDATED_COLLECTION].drop() # Clear dirty state from previous runs
-
         import json
         from pathlib import Path
         schema_path = Path("config/orders_schema.json")
-        if schema_path.exists():
-            with open(schema_path, "r", encoding="utf-8") as f:
-                schema_validator = json.load(f)
-            db.create_collection(VALIDATED_COLLECTION, validator={"$jsonSchema": schema_validator})
-        else:
-            db.create_collection(VALIDATED_COLLECTION)
+        
+        if VALIDATED_COLLECTION not in db.list_collection_names():
+            if schema_path.exists():
+                with open(schema_path, "r", encoding="utf-8") as f:
+                    schema_validator = json.load(f)
+                db.create_collection(VALIDATED_COLLECTION, validator={"$jsonSchema": schema_validator})
+            else:
+                db.create_collection(VALIDATED_COLLECTION)
 
         val_col = db[VALIDATED_COLLECTION]
         val_col.create_index([("order_id", 1)], unique=True, name="idx_val_order_id_unique")
@@ -54,7 +53,6 @@ def setup_mongodb():
         # 3. Quarantine Collection Indexes
         # ----------------------------------------------------
         quar_col = db[QUARANTINE_COLLECTION]
-        quar_col.drop() # Clear dirty state from previous runs
 
         quar_col.create_index([("metadata.run_id", 1)], name="idx_quar_run_id")
         quar_col.create_index([("quarantine_reasons", 1)], name="idx_quar_reasons")

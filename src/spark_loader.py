@@ -25,7 +25,7 @@ def create_spark_session():
         .config("spark.executor.memory", SPARK_EXECUTOR_MEMORY)
         .config("spark.memory.offHeap.enabled", "true")
         .config("spark.memory.offHeap.size", "2g")
-        .config("spark.jars.packages", "org.mongodb.spark:mongo-spark-connector_2.12:3.0.1")
+        .config("spark.jars.packages", "org.mongodb.spark:mongo-spark-connector_2.13:10.4.0")
         .getOrCreate()
     )
 
@@ -35,6 +35,7 @@ def create_spark_session():
     print(f" - Driver Memory : {spark.conf.get('spark.driver.memory')}")
     print(f" - Executor Memory : {spark.conf.get('spark.executor.memory')}")
     print(f" - OffHeap Enabled : {spark.conf.get('spark.memory.offHeap.enabled')}")
+    print(f" - Spark UI URL  : {spark.sparkContext.uiWebUrl}")
     print(f" - CSV Escape Char : '\"' (RFC 4180 Standard)")
     print("-" * 60 + "\n")
 
@@ -94,13 +95,13 @@ def load_spark_df_to_raw(df, run_id: str, file_name: str) -> dict:
         struct(*[col(c) for c in df.columns]).alias("source_data")
     )
     
-    # 2. Write using MongoDB Spark Connector
-    mongo_write_uri = f"{MONGO_URI}/{MONGO_DATABASE}.{RAW_COLLECTION}"
-    
+    # 2. Write using MongoDB Spark Connector (v10+)
     (df_structured.write
-        .format("mongo")
+        .format("mongodb")
         .mode("append")
-        .option("uri", mongo_write_uri)
+        .option("spark.mongodb.write.connection.uri", MONGO_URI)
+        .option("spark.mongodb.write.database", MONGO_DATABASE)
+        .option("spark.mongodb.write.collection", RAW_COLLECTION)
         .save())
     
     elapsed = time.perf_counter() - start_time
