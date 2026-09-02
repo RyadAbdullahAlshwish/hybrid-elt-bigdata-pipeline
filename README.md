@@ -15,16 +15,15 @@ The pipeline implements an automated **File Router** that dynamically selects th
 
 ## 🚀 Key Features
 
-1. **Intelligent File Router**: Dynamically selects between **Python Batch Loader** ($\le 200$ MB) for low-overhead streaming ingestion and **PySpark Parallel Engine** ($> 200$ MB) using the official `mongo-spark-connector`.
+1. **Intelligent File Router**: Dynamically selects between **Python Batch Loader** ($\le 200\text{ MB}$) for low-overhead streaming ingestion and **PySpark Parallel Engine** ($> 200\text{ MB}$) using the official `mongo-spark-connector`.
 2. **Pure ELT Paradigm**: Ingests 100% of untransformed source records into MongoDB `orders_raw` before applying business logic.
 3. **8 Automated Quality Rules & Audit Trail**: Cleans numbers (Arabic/Hindi conversion, comma separators), strips textual currencies to standard `YER`, standardizes payment statuses, repairs contacts, and tracks modifications in a dedicated `corrections` array.
 4. **Classification & Quarantine Engine**: Segregates records into `VALID`, `CORRECTED`, and `QUARANTINE` using standardized business error codes (`MISSING_ORDER_ID`, `CORRUPTED_JSON`, etc.).
 5. **Database-Level Schema Enforcement**: Employs MongoDB `$jsonSchema` validation rules alongside a unique compound index on `order_id` in `orders_validated`.
 6. **Strict Idempotency via Bulk Upserts**: Utilizes atomic `bulk_write` operations with upserts to eliminate duplicate records during repeated executions, tracking `inserted_count`, `updated_count`, and `unchanged_count`.
 7. **Mathematical Consistency Rule**:
-   $$\text{run\_raw\_count} = \text{run\_valid\_count} + \text{run\_corrected\_count} + \text{run\_quarantine\_count}$$
+   $$\mathrm{run\_raw\_count} = \mathrm{run\_valid\_count} + \mathrm{run\_corrected\_count} + \mathrm{run\_quarantine\_count}$$
 8. **Automated Error Case Counting**: Dynamically compiles quarantine breakdown metrics inside `reports/results.json` and human-readable `reports/results.md`.
-
 ---
 
 ## 🏗 Architecture & ELT Flow
@@ -232,4 +231,4 @@ Every execution logs performance and correctness metrics into `reports/results.j
 ```
 
 Mathematical consistency is guaranteed on every run:
-$$\text{rows\_read} = 100{,}000 = 82{,}140 + 12{,}860 + 5{,}000$$
+$$\mathrm{rows\_read} = 100{,}000 = 82{,}140 + 12{,}860 + 5{,}000$$
