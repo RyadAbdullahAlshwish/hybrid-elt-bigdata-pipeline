@@ -19,6 +19,8 @@ def generate_pipeline_metrics(
     elapsed_seconds: float,
     upsert_inserted: int = 0,
     upsert_modified: int = 0,
+    upsert_unchanged: int = 0,
+    error_case_counts: Dict[str, int] = None,
 ) -> Dict[str, Any]:
     """
     Generate pipeline metrics and verify the mandatory acceptance equation:
@@ -50,8 +52,9 @@ def generate_pipeline_metrics(
             "run_quarantine_count": quarantine_count,
         },
         "upsert_stats": {
-            "upsert_inserted": upsert_inserted,
-            "upsert_modified": upsert_modified,
+            "inserted_count": upsert_inserted,
+            "updated_count": upsert_modified,
+            "unchanged_count": upsert_unchanged,
         },
         "consistency_check": {
             "formula": "run_raw_count == run_valid_count + run_corrected_count + run_quarantine_count",
@@ -60,6 +63,7 @@ def generate_pipeline_metrics(
             "classified_sum": expected_sum,
             "difference": raw_loaded - expected_sum,
         },
+        "error_case_counts": error_case_counts or {},
     }
 
     return metrics
@@ -101,8 +105,21 @@ def save_pipeline_reports(metrics: Dict[str, Any]) -> None:
 
 ---
 
+## 🚫 Error Case Counts (Quarantine Reasons)
+```json
+{json.dumps(metrics.get("error_case_counts", {}), indent=2, ensure_ascii=False)}
+```
+
+---
+
+## 🔄 Idempotent Upsert Statistics
+- **Inserted (`inserted_count`)**: `{metrics['upsert_stats']['inserted_count']:,}`
+- **Updated (`updated_count`)**: `{metrics['upsert_stats']['updated_count']:,}`
+- **Unchanged (`unchanged_count`)**: `{metrics['upsert_stats']['unchanged_count']:,}`
+
+---
+
 ## 🔒 Consistency Check
-- **Formula**: `run_raw_count == run_valid_count + run_corrected_count + run_quarantine_count`
 - **Status**: `{"PASSED ✅" if metrics["consistency_check"]["is_consistent"] else "FAILED ❌"}`
 - **Raw Count**: `{metrics['consistency_check']['raw_count']:,}`
 - **Classified Sum**: `{metrics['consistency_check']['classified_sum']:,}`

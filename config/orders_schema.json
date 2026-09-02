@@ -1,0 +1,42 @@
+{
+  "bsonType": "object",
+  "required": [
+    "order_id",
+    "quality_status",
+    "metadata"
+  ],
+  "properties": {
+    "order_id": {
+      "bsonType": "string",
+      "description": "order_id must be a string and is required"
+    },
+    "quality_status": {
+      "enum": [
+        "VALID",
+        "CORRECTED"
+      ],
+      "description": "quality_status must be either VALID or CORRECTED and is required"
+    },
+    "metadata": {
+      "bsonType": "object",
+      "required": [
+        "run_id"
+      ],
+      "properties": {
+        "run_id": {
+          "bsonType": "string",
+          "description": "run_id must be a string and is required"
+        }
+      }
+    },
+    "total_amount": {
+      "bsonType": [
+        "string",
+        "double",
+        "int",
+        "null"
+      ],
+      "description": "total_amount is optional but if present must be string, double, int or null"
+    }
+  }
+}

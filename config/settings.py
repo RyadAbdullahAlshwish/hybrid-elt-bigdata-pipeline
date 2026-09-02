@@ -50,3 +50,12 @@ MONGO_DATABASE = "midterm_data_pipeline"
 RAW_COLLECTION = "orders_raw"
 VALIDATED_COLLECTION = "orders_validated"
 QUARANTINE_COLLECTION = "orders_quarantine"
+
+
+# ============================================================
+# Apache Spark Configuration
+# ============================================================
+SPARK_APP_NAME = "OrdersPipeline"
+SPARK_DRIVER_MEMORY = "4g"       # رفع ذاكرة الـ Driver إلى 4 جيجابايت
+SPARK_EXECUTOR_MEMORY = "4g"     # تخصيص ذاكرة المعالجة
+SPARK_MASTER = "local[*]"        # استخدام جميع أنوية المعالج المتاحة محلياً

@@ -30,10 +30,22 @@ def setup_mongodb():
         raw_col.create_index([("source_data.order_id", 1)], name="idx_order_id")
 
         # ----------------------------------------------------
-        # 2. Validated Collection Indexes (Unique Index on order_id)
+        # 2. Validated Collection Indexes & Schema Validation
         # ----------------------------------------------------
+        if VALIDATED_COLLECTION in db.list_collection_names():
+            db[VALIDATED_COLLECTION].drop() # Clear dirty state from previous runs
+
+        import json
+        from pathlib import Path
+        schema_path = Path("config/orders_schema.json")
+        if schema_path.exists():
+            with open(schema_path, "r", encoding="utf-8") as f:
+                schema_validator = json.load(f)
+            db.create_collection(VALIDATED_COLLECTION, validator={"$jsonSchema": schema_validator})
+        else:
+            db.create_collection(VALIDATED_COLLECTION)
+
         val_col = db[VALIDATED_COLLECTION]
-        val_col.drop() # Clear dirty state from previous runs
         val_col.create_index([("order_id", 1)], unique=True, name="idx_val_order_id_unique")
         val_col.create_index([("metadata.run_id", 1)], name="idx_val_run_id")
         val_col.create_index([("quality_status", 1)], name="idx_val_quality_status")

@@ -4,6 +4,13 @@ from pathlib import Path
 from pyspark.sql import SparkSession
 
 
+from config.settings import (
+    SPARK_APP_NAME,
+    SPARK_DRIVER_MEMORY,
+    SPARK_EXECUTOR_MEMORY,
+    SPARK_MASTER
+)
+
 def create_spark_session():
     """Create and return a local Spark session with increased memory to prevent OOM errors."""
     # Ensure PySpark workers use the exact same Python executable to avoid "Python worker failed to connect back"
@@ -12,12 +19,13 @@ def create_spark_session():
     
     spark = (
         SparkSession.builder
-        .master("local[*]")
-        .appName("BigData_Spark_Loader")
-        .config("spark.driver.memory", "8g")
-        .config("spark.executor.memory", "8g")
+        .master(SPARK_MASTER)
+        .appName(SPARK_APP_NAME)
+        .config("spark.driver.memory", SPARK_DRIVER_MEMORY)
+        .config("spark.executor.memory", SPARK_EXECUTOR_MEMORY)
         .config("spark.memory.offHeap.enabled", "true")
         .config("spark.memory.offHeap.size", "2g")
+        .config("spark.jars.packages", "org.mongodb.spark:mongo-spark-connector_2.12:3.0.1")
         .getOrCreate()
     )
 
@@ -60,56 +68,44 @@ def load_csv_with_spark(file_path: str):
 
 import time
 
-def _write_partition_to_mongo(partition, run_id: str, file_name: str):
-    """Worker function to write a partition of rows to MongoDB in bulk."""
-    from pymongo import MongoClient
-    from config.settings import MONGO_URI, MONGO_DATABASE, RAW_COLLECTION, BATCH_SIZE
-    
-    client = MongoClient(MONGO_URI)
-    collection = client[MONGO_DATABASE][RAW_COLLECTION]
-    
-    batch = []
-    ingested_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    
-    for row in partition:
-        document = {
-            "metadata": {
-                "run_id": run_id,
-                "source_file": file_name,
-                "source_row_number": None,  # Not easily available in Spark without window functions
-                "ingested_at": ingested_at,
-                "engine_used": "pyspark",
-            },
-            "source_data": row.asDict(),
-        }
-        batch.append(document)
-        
-        if len(batch) >= BATCH_SIZE:
-            collection.insert_many(batch, ordered=False)
-            batch.clear()
-            
-    if batch:
-        collection.insert_many(batch, ordered=False)
-        
-    client.close()
-
 def load_spark_df_to_raw(df, run_id: str, file_name: str) -> dict:
     """
-    Write the Spark DataFrame to MongoDB raw collection in parallel using foreachPartition.
+    Write the Spark DataFrame to MongoDB raw collection in parallel using MongoDB Spark Connector.
     Returns loading statistics.
     """
+    from pyspark.sql.functions import struct, lit, current_timestamp, col, date_format
+    from config.settings import MONGO_URI, MONGO_DATABASE, RAW_COLLECTION
+    
     print("\n" + "=" * 60)
-    print("PYSPARK DISTRIBUTED LOAD STARTED")
+    print("PYSPARK DISTRIBUTED LOAD STARTED (MongoDB Connector)")
     print("=" * 60)
     
     start_time = time.perf_counter()
     
-    # Execute the parallel write
-    df.foreachPartition(lambda partition: _write_partition_to_mongo(partition, run_id, file_name))
+    # 1. Structure the DataFrame to match the raw collection format
+    df_structured = df.select(
+        struct(
+            lit(run_id).alias("run_id"),
+            lit(file_name).alias("source_file"),
+            lit(None).cast("string").alias("source_row_number"),
+            date_format(current_timestamp(), "yyyy-MM-dd'T'HH:mm:ss'Z'").alias("ingested_at"),
+            lit("pyspark").alias("engine_used")
+        ).alias("metadata"),
+        struct(*[col(c) for c in df.columns]).alias("source_data")
+    )
+    
+    # 2. Write using MongoDB Spark Connector
+    mongo_write_uri = f"{MONGO_URI}/{MONGO_DATABASE}.{RAW_COLLECTION}"
+    
+    (df_structured.write
+        .format("mongo")
+        .mode("append")
+        .option("uri", mongo_write_uri)
+        .save())
     
     elapsed = time.perf_counter() - start_time
     
-    # Since foreachPartition doesn't easily return counts, we'll use df.count()
+    # Calculate rows processed
     rows_read = df.count()
     raw_loaded = rows_read
     

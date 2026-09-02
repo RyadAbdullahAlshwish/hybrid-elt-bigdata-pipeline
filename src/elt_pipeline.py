@@ -42,9 +42,12 @@ def process_raw_to_validated_and_quarantine(run_id: str) -> Dict[str, Any]:
 
     upsert_inserted = 0
     upsert_modified = 0
+    upsert_unchanged = 0
 
     val_bulk_ops = []
     quar_bulk_ops = []
+    
+    error_case_counts = {}
 
     # Stream raw records for this run_id
     cursor = raw_col.find({"metadata.run_id": run_id})
@@ -109,11 +112,15 @@ def process_raw_to_validated_and_quarantine(run_id: str) -> Dict[str, Any]:
                 res = val_col.bulk_write(val_bulk_ops, ordered=False)
                 upsert_inserted += res.upserted_count
                 upsert_modified += res.modified_count
+                upsert_unchanged += (res.matched_count - res.modified_count)
                 val_bulk_ops.clear()
 
         else:
             # Quarantine Stage
             quarantine_count += 1
+            for r in reasons:
+                error_case_counts[r] = error_case_counts.get(r, 0) + 1
+                
             quarantine_doc = {
                 "quarantine_reasons": reasons,
                 "metadata": {
@@ -146,6 +153,7 @@ def process_raw_to_validated_and_quarantine(run_id: str) -> Dict[str, Any]:
         res = val_col.bulk_write(val_bulk_ops, ordered=False)
         upsert_inserted += res.upserted_count
         upsert_modified += res.modified_count
+        upsert_unchanged += (res.matched_count - res.modified_count)
         val_bulk_ops.clear()
 
     if quar_bulk_ops:
@@ -160,6 +168,8 @@ def process_raw_to_validated_and_quarantine(run_id: str) -> Dict[str, Any]:
         "quarantine_count": quarantine_count,
         "upsert_inserted": upsert_inserted,
         "upsert_modified": upsert_modified,
+        "upsert_unchanged": upsert_unchanged,
+        "error_case_counts": error_case_counts,
     }
 
 
@@ -219,6 +229,8 @@ def run_elt_pipeline(file_path: str) -> Dict[str, Any]:
         elapsed_seconds=elapsed_seconds,
         upsert_inserted=proc_res["upsert_inserted"],
         upsert_modified=proc_res["upsert_modified"],
+        upsert_unchanged=proc_res["upsert_unchanged"],
+        error_case_counts=proc_res["error_case_counts"],
     )
 
     save_pipeline_reports(metrics)
