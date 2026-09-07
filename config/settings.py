@@ -46,6 +46,7 @@ BATCH_SIZE = 1000
 MONGO_URI = "mongodb://localhost:27017"
 
 MONGO_DATABASE = "midterm_data_pipeline"
+# MONGO_DATABASE = "orders_sample_100k"
 
 RAW_COLLECTION = "orders_raw"
 VALIDATED_COLLECTION = "orders_validated"
@@ -59,3 +60,7 @@ SPARK_APP_NAME = "OrdersPipeline"
 SPARK_DRIVER_MEMORY = "4g"       # رفع ذاكرة الـ Driver إلى 4 جيجابايت
 SPARK_EXECUTOR_MEMORY = "4g"     # تخصيص ذاكرة المعالجة
 SPARK_MASTER = "local[*]"        # استخدام جميع أنوية المعالج المتاحة محلياً
+
+SPARK_OFFHEAP_ENABLED = "true"
+SPARK_OFFHEAP_SIZE = "2g"
+SPARK_JARS_PACKAGES = "org.mongodb.spark:mongo-spark-connector_2.13:10.4.0"

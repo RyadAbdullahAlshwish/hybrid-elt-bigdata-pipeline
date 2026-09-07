@@ -147,7 +147,7 @@ def clean_email_and_phone(field_name: str, val: str) -> str:
 # Master Cleaning & Audit Trail Logic
 # ============================================================
 
-def clean_record_and_generate_audit(source_data: Dict[str, Any]) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+def clean_record_and_generate_audit(raw_record: Dict[str, Any]) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """
     Apply the 8 data quality cleaning rules to a raw record dictionary
     and record an Audit Trail for any field that is modified.
@@ -155,17 +155,19 @@ def clean_record_and_generate_audit(source_data: Dict[str, Any]) -> Tuple[Dict[s
     Returns:
         tuple: (cleaned_data_dict, list_of_audit_corrections)
     """
-    cleaned_data = dict(source_data)
+    # Create a draft of the cleaned data
+    cleaned_data = dict(raw_record)
     corrections = []
 
-    numeric_fields = ["delivery_cost", "payment_amount", "total_amount"]
-
-    for field, raw_val in source_data.items():
+    # Iterate through each field in the raw record
+    for field, raw_val in raw_record.items():
         if raw_val is None:
             continue
         
         current_val = str(raw_val).strip()
         orig_val = current_val
+
+        numeric_fields = ["delivery_cost", "payment_amount", "total_amount"]
 
         # ----------------------------------------------------
         # Rule 1: Digits & Separator Normalization
@@ -257,7 +259,7 @@ def clean_record_and_generate_audit(source_data: Dict[str, Any]) -> Tuple[Dict[s
                 current_val = res
 
         # ----------------------------------------------------
-        # Rule 8: Email & Phone Formatting
+        # Rule 9: Email & Phone Formatting
         # ----------------------------------------------------
         if field in ["customer_email", "customer_phone"] and current_val:
             res = clean_email_and_phone(field, current_val)
@@ -266,10 +268,56 @@ def clean_record_and_generate_audit(source_data: Dict[str, Any]) -> Tuple[Dict[s
                     "field": field,
                     "original_value": current_val,
                     "corrected_value": res,
-                    "rule_code": "R8_CONTACT_FORMAT_CLEANING"
+                    "rule_code": "R9_CONTACT_FORMAT_CLEANING"
                 })
                 current_val = res
 
         cleaned_data[field] = current_val
+
+    # ----------------------------------------------------
+    # Rule 8: Recalculate Total Amount from Items
+    # ----------------------------------------------------
+    import json
+    items_raw = cleaned_data.get("items_json")
+    total_amt_raw = cleaned_data.get("total_amount")
+    delivery_raw = cleaned_data.get("delivery_cost")
+    
+    if items_raw and str(items_raw).strip() != "" and str(items_raw).strip() != "???":
+        try:
+            items = json.loads(items_raw)
+            if isinstance(items, list):
+                calculated_items_total = sum(
+                    abs(float(item.get("unit_price", item.get("price", 0)))) * abs(float(item.get("qty", 1)))
+                    for item in items if isinstance(item, dict)
+                )
+                
+                delivery_cost = 0.0
+                if delivery_raw:
+                    try:
+                        delivery_cost = abs(float(str(delivery_raw).replace(",", "")))
+                    except ValueError:
+                        pass
+                
+                expected_total = calculated_items_total + delivery_cost
+                
+                # Compare expected total with current total
+                current_total = None
+                if total_amt_raw:
+                    try:
+                        current_total = float(str(total_amt_raw).replace(",", ""))
+                    except ValueError:
+                        pass
+                
+                # If total is missing, invalid, or doesn't match expected (allowing small float diff)
+                if current_total is None or abs(current_total - expected_total) > 0.1:
+                    corrections.append({
+                        "field": "total_amount",
+                        "original_value": total_amt_raw,
+                        "corrected_value": str(expected_total),
+                        "rule_code": "R8_RECALCULATE_TOTAL_AMOUNT"
+                    })
+                    cleaned_data["total_amount"] = str(expected_total)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
 
     return cleaned_data, corrections

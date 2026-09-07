@@ -11,6 +11,7 @@ def test_classification_valid():
     cleaned_data = {
         "order_id": "ORD-1001",
         "customer_id": "CUST-500",
+        "order_date": "2023-01-01",
         "items_json": '[{"item_id": 1, "price": 100}]',
         "total_amount": "100.00",
         "currency": "YER",
@@ -27,6 +28,7 @@ def test_classification_corrected():
     cleaned_data = {
         "order_id": "ORD-1002",
         "customer_id": "CUST-500",
+        "order_date": "2023-01-01",
         "items_json": '[{"item_id": 1, "price": 100}]',
         "total_amount": "100.00",
         "currency": "YER",

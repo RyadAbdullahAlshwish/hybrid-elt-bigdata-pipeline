@@ -1,30 +1,52 @@
 # Pipeline Execution Summary Report
 
-- **Run ID**: `2b970c93488c46818c1e463e8dfbaab2`
-- **Timestamp**: `2026-08-30T00:25:29Z`
-- **Input File**: `orders_sample_10k.csv` (4.17 MB)
+- **Run ID**: `6012c0b36cb54859b482cd20bde445bd`
+- **Timestamp**: `2026-09-07T02:06:09Z`
+- **Input File**: `orders_sample_100k.csv` (41.77 MB)
 - **Engine Used**: `python_batch`
 
 ---
 
 ## ⚡ Performance Metrics
-- **Elapsed Time**: `4.478 s`
-- **Throughput**: `2233.02 rows/s`
+- **Elapsed Time**: `34.271 s`
+- **Throughput**: `2917.9 rows/s`
+- **Batch Size**: `1000`
 
 ---
 
 ## 📊 Classification Statistics
 | Category | Count | Percentage |
 | :--- | :--- | :--- |
-| **Raw Loaded (`run_raw_count`)** | `10,000` | 100.0% |
-| **Valid (`run_valid_count`)** | `8,133` | `81.33%` |
-| **Corrected (`run_corrected_count`)** | `1,359` | `13.59%` |
-| **Quarantine (`run_quarantine_count`)** | `508` | `5.08%` |
+| **Total Raw** | `100000` | 100% |
+| ✅ **Valid** | `79457` | `79.46%` |
+| 🛠️ **Corrected** | `15639` | `15.64%` |
+| 🚨 **Quarantine** | `4904` | `4.9%` |
+
+---
+
+## 🚫 Error Case Counts (Quarantine Reasons)
+```json
+{
+  "MISSING_CUSTOMER_ID": 1411,
+  "CORRUPTED_ITEMS_JSON": 1338,
+  "UNKNOWN_PRICE": 674,
+  "MULTIPLE_CONFLICTING_ERRORS": 674,
+  "UNRESOLVED_CRITICAL_FIELD": 1431,
+  "MISSING_ORDER_ID": 721,
+  "EMPTY_ITEMS": 677
+}
+```
+
+---
+
+## 🔄 Idempotent Upsert Statistics
+- **Inserted (`inserted_count`)**: `0`
+- **Updated (`updated_count`)**: `95,096`
+- **Unchanged (`unchanged_count`)**: `0`
 
 ---
 
 ## 🔒 Consistency Check
-- **Formula**: `run_raw_count == run_valid_count + run_corrected_count + run_quarantine_count`
 - **Status**: `PASSED ✅`
-- **Raw Count**: `10,000`
-- **Classified Sum**: `10,000`
+- **Raw Count**: `100,000`
+- **Classified Sum**: `100,000`

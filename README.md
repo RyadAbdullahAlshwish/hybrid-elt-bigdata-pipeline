@@ -15,16 +15,15 @@ The pipeline implements an automated **File Router** that dynamically selects th
 
 ## 🚀 Key Features
 
-1. **Intelligent File Router**: Dynamically selects between **Python Batch Loader** ($\le 200$ MB) for low-overhead streaming ingestion and **PySpark Parallel Engine** ($> 200$ MB) using the official `mongo-spark-connector`.
+1. **Intelligent File Router**: Dynamically selects between **Python Batch Loader** ($\le 200\text{ MB}$) for low-overhead streaming ingestion and **PySpark Parallel Engine** ($> 200\text{ MB}$) using the official `mongo-spark-connector`.
 2. **Pure ELT Paradigm**: Ingests 100% of untransformed source records into MongoDB `orders_raw` before applying business logic.
-3. **8 Automated Quality Rules & Audit Trail**: Cleans numbers (Arabic/Hindi conversion, comma separators), strips textual currencies to standard `YER`, standardizes payment statuses, repairs contacts, and tracks modifications in a dedicated `corrections` array.
+3. **9 Automated Quality Rules & Audit Trail**: Cleans numbers (Arabic/Hindi conversion, comma separators), strips textual currencies to standard `YER`, standardizes payment statuses, recalculates totals from item-level data, repairs contacts, and tracks modifications in a dedicated `corrections` array.
 4. **Classification & Quarantine Engine**: Segregates records into `VALID`, `CORRECTED`, and `QUARANTINE` using standardized business error codes (`MISSING_ORDER_ID`, `CORRUPTED_JSON`, etc.).
 5. **Database-Level Schema Enforcement**: Employs MongoDB `$jsonSchema` validation rules alongside a unique compound index on `order_id` in `orders_validated`.
 6. **Strict Idempotency via Bulk Upserts**: Utilizes atomic `bulk_write` operations with upserts to eliminate duplicate records during repeated executions, tracking `inserted_count`, `updated_count`, and `unchanged_count`.
 7. **Mathematical Consistency Rule**:
-   $$\text{run\_raw\_count} = \text{run\_valid\_count} + \text{run\_corrected\_count} + \text{run\_quarantine\_count}$$
+   `run_raw_count` = `run_valid_count` + `run_corrected_count` + `run_quarantine_count`
 8. **Automated Error Case Counting**: Dynamically compiles quarantine breakdown metrics inside `reports/results.json` and human-readable `reports/results.md`.
-
 ---
 
 ## 🏗 Architecture & ELT Flow
@@ -121,6 +120,8 @@ pip install -r requirements.txt
 ├── reports/
 │   ├── results.json             # Automated JSON execution report & error_case_counts
 │   └── results.md               # Visual Markdown metrics summary
+├── run.py                       # Interactive TUI Control Panel (Rich Dashboard)
+├── run.bat                      # Windows Launcher for the Control Panel
 ├── src/
 │   ├── batch_loader.py          # Python streaming batch loader (insert_many)
 │   ├── spark_loader.py          # Distributed PySpark loader with MongoDB Connector
@@ -141,7 +142,7 @@ pip install -r requirements.txt
 
 ## 🛠 Data Quality Framework & Quarantine
 
-### 8 Automated Cleaning Rules
+### 9 Automated Cleaning Rules
 1. **Numeric Normalization**: Converts Eastern Arabic and Perso-Arabic numerals to standard Western digits.
 2. **Separator Cleansing**: Removes thousand separators and invalid punctuation from numeric fields.
 3. **Currency Extraction**: Strips embedded textual currency markers from pricing figures.
@@ -149,7 +150,8 @@ pip install -r requirements.txt
 5. **Sign Correction**: Corrects accidental negative pricing and quantity values to absolute figures.
 6. **Currency Standardization**: Normalizes diverse regional currency strings to the uniform code `YER`.
 7. **Status Mapping**: Standardizes order lifecycle statuses into uniform system states.
-8. **Contact Cleansing**: Fixes malformed email syntaxes (extra spaces, double `@`) and normalizes international phone number prefixes.
+8. **Total Amount Recalculation**: Recomputes `total_amount` from `items_json` line items (`unit_price × qty`) plus `delivery_cost`, correcting any mismatch.
+9. **Contact Cleansing**: Fixes malformed email syntaxes (extra spaces, double `@`) and normalizes international phone number prefixes.
 
 ### Audit Trail Format
 Modifications are preserved within the document structure:
@@ -173,7 +175,14 @@ Records that fail mandatory constraints are routed to `orders_quarantine` tagged
 
 ## 💻 Running the Pipeline
 
-### 1. Extract Sample Dataset
+### 🌟 Interactive Control Panel (Recommended)
+The most convenient way to operate the pipeline is through the interactive **Rich Terminal Dashboard**. It provides a centralized GUI-like experience in the terminal to launch jobs, check metrics, and run diagnostics without memorizing CLI arguments:
+```powershell
+run.bat
+# Or manually: python run.py
+```
+
+### CLI Mode: 1. Extract Sample Dataset
 ```powershell
 python src/create_small_sample.py --input data/raw/orders_huge_mixed_quality.csv --output data/samples/orders_sample_100k.csv --rows 100000
 ```
@@ -232,4 +241,19 @@ Every execution logs performance and correctness metrics into `reports/results.j
 ```
 
 Mathematical consistency is guaranteed on every run:
-$$\text{rows\_read} = 100{,}000 = 82{,}140 + 12{,}860 + 5{,}000$$
+
+$$\mathit{rows\_read} = 100{,}000 = 82{,}140 + 12{,}860 + 5{,}000$$
+
+---
+
+## 📸 Project Showcase & Documentation
+
+For a comprehensive breakdown of the execution flow, architecture, and visual proofs of data quality, please refer to the detailed documentation in the `docs/` directory:
+
+- 📖 [Execution Flow & Visual Proofs](docs/proof_of_execution.md)
+- 🏗 [Architecture Specification](docs/architecture.md)
+- 🚀 [User Guide](docs/user_guide.md)
+
+*(Example: The pipeline executing a PySpark job on 30M rows)*
+![PySpark Execution](screenshots/10_pyspark_30m_terminal.png)
+

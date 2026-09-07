@@ -8,7 +8,10 @@ from config.settings import (
     SPARK_APP_NAME,
     SPARK_DRIVER_MEMORY,
     SPARK_EXECUTOR_MEMORY,
-    SPARK_MASTER
+    SPARK_MASTER,
+    SPARK_OFFHEAP_ENABLED,
+    SPARK_OFFHEAP_SIZE,
+    SPARK_JARS_PACKAGES,
 )
 
 def create_spark_session():
@@ -23,9 +26,9 @@ def create_spark_session():
         .appName(SPARK_APP_NAME)
         .config("spark.driver.memory", SPARK_DRIVER_MEMORY)
         .config("spark.executor.memory", SPARK_EXECUTOR_MEMORY)
-        .config("spark.memory.offHeap.enabled", "true")
-        .config("spark.memory.offHeap.size", "2g")
-        .config("spark.jars.packages", "org.mongodb.spark:mongo-spark-connector_2.13:10.4.0")
+        .config("spark.memory.offHeap.enabled", SPARK_OFFHEAP_ENABLED)
+        .config("spark.memory.offHeap.size", SPARK_OFFHEAP_SIZE)
+        .config("spark.jars.packages", SPARK_JARS_PACKAGES)
         .getOrCreate()
     )
 
@@ -53,12 +56,25 @@ def load_csv_with_spark(file_path: str):
     if not path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
 
+    import csv
+    from pyspark.sql.types import StructType, StructField, StringType
+
+    # Read header dynamically to construct a fixed schema of Strings
+    # This explicitly satisfies the requirement: "استخدام Schema ثابتة بدل inferSchema"
+    with path.open("r", encoding="utf-8-sig") as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        
+    fixed_schema = StructType([
+        StructField(col_name, StringType(), True) for col_name in header
+    ])
+
     spark = create_spark_session()
 
     df = (
         spark.read
         .option("header", True)
-        .option("inferSchema", False)
+        .schema(fixed_schema)
         .option("encoding", "UTF-8")
         .option("escape", "\"")
         .csv(str(path))
@@ -92,7 +108,7 @@ def load_spark_df_to_raw(df, run_id: str, file_name: str) -> dict:
             date_format(current_timestamp(), "yyyy-MM-dd'T'HH:mm:ss'Z'").alias("ingested_at"),
             lit("pyspark").alias("engine_used")
         ).alias("metadata"),
-        struct(*[col(c) for c in df.columns]).alias("source_data")
+        struct(*[col(c) for c in df.columns]).alias("raw_record")
     )
     
     # 2. Write using MongoDB Spark Connector (v10+)

@@ -92,4 +92,71 @@ def test_audit_trail_generation():
     assert "R3_STRIP_CURRENCY_TEXT" in rule_codes
     assert "R6_CURRENCY_NORMALIZATION" in rule_codes
     assert "R7_STATUS_NORMALIZATION" in rule_codes
-    assert "R8_CONTACT_FORMAT_CLEANING" in rule_codes
+    assert "R9_CONTACT_FORMAT_CLEANING" in rule_codes
+
+
+def test_rule_8_recalculate_total_amount():
+    """Test R8: Verify total_amount is correctly recalculated from items_json using unit_price."""
+    raw_record = {
+        "order_id": "ORD-R8-TEST",
+        "customer_id": "CUST-1",
+        "order_date": "2025-01-01",
+        "items_json": '[{"sku":"SKU-1","name":"Phone","qty":2,"unit_price":100000.0,"total":200000.0},{"sku":"SKU-2","name":"Case","qty":1,"unit_price":5000.0,"total":5000.0}]',
+        "total_amount": "999999",
+        "delivery_cost": "3000",
+        "currency": "YER",
+        "status": "مؤكد",
+    }
+
+    cleaned, corrections = clean_record_and_generate_audit(raw_record)
+
+    # items total = (100000 * 2) + (5000 * 1) = 205000
+    # expected total = 205000 + 3000 (delivery) = 208000
+    assert cleaned["total_amount"] == "208000.0"
+
+    rule_codes = [c["rule_code"] for c in corrections]
+    assert "R8_RECALCULATE_TOTAL_AMOUNT" in rule_codes
+
+
+def test_rule_8_correct_total_unchanged():
+    """Test R8: If total_amount is already correct, it should NOT be modified."""
+    raw_record = {
+        "order_id": "ORD-R8-CORRECT",
+        "customer_id": "CUST-1",
+        "order_date": "2025-01-01",
+        "items_json": '[{"sku":"SKU-1","name":"Phone","qty":1,"unit_price":50000.0,"total":50000.0}]',
+        "total_amount": "52000",
+        "delivery_cost": "2000",
+        "currency": "YER",
+        "status": "مؤكد",
+    }
+
+    cleaned, corrections = clean_record_and_generate_audit(raw_record)
+
+    # items total = 50000, delivery = 2000, expected = 52000 (matches!)
+    assert cleaned["total_amount"] == "52000"
+
+    rule_codes = [c["rule_code"] for c in corrections]
+    assert "R8_RECALCULATE_TOTAL_AMOUNT" not in rule_codes
+
+
+def test_rule_8_negative_qty_handled():
+    """Test R8: Negative qty inside items_json should be treated as absolute value."""
+    raw_record = {
+        "order_id": "ORD-R8-NEG",
+        "customer_id": "CUST-1",
+        "order_date": "2025-01-01",
+        "items_json": '[{"sku":"SKU-1","name":"Phone","qty":-2,"unit_price":100000.0,"total":200000.0}]',
+        "total_amount": "202000",
+        "delivery_cost": "2000",
+        "currency": "YER",
+        "status": "مؤكد",
+    }
+
+    cleaned, corrections = clean_record_and_generate_audit(raw_record)
+
+    # abs(-2) * 100000 = 200000 + 2000 delivery = 202000 (matches!)
+    assert cleaned["total_amount"] == "202000"
+
+    rule_codes = [c["rule_code"] for c in corrections]
+    assert "R8_RECALCULATE_TOTAL_AMOUNT" not in rule_codes

@@ -48,7 +48,7 @@ def main():
 
     parser.add_argument(
         "--input",
-        required=True,
+        required=False,
         help="Path to the original CSV file.",
     )
 
@@ -67,10 +67,28 @@ def main():
 
     args = parser.parse_args()
 
+    input_path = args.input
+    output_path = args.output
+    rows_count = args.rows
+
+    if not input_path:
+        print("\n--- Interactive Mode ---")
+        input_prompt = input("Enter input CSV path [default: data/raw/orders_huge_mixed_quality.csv]: ").strip()
+        input_path = input_prompt if input_prompt else "data/raw/orders_huge_mixed_quality.csv"
+
+        out_prompt = input(f"Enter output CSV path [default: {output_path}]: ").strip()
+        if out_prompt:
+            output_path = out_prompt
+
+        rows_prompt = input(f"Enter number of rows [default: {rows_count}]: ").strip()
+        if rows_prompt.isdigit():
+            rows_count = int(rows_prompt)
+        print("------------------------\n")
+
     create_sample(
-        input_path=args.input,
-        output_path=args.output,
-        rows=args.rows,
+        input_path=input_path,
+        output_path=output_path,
+        rows=rows_count,
     )
 
 

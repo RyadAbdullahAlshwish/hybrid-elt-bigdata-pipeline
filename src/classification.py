@@ -42,14 +42,24 @@ def evaluate_record_classification(
     # 4. Total Amount Validation
     total_amt = cleaned_data.get("total_amount")
     if not total_amt or str(total_amt).strip() == "???":
-        reasons.append("CORRUPTED_TOTAL_AMOUNT")
+        reasons.append("UNKNOWN_PRICE")
     else:
         try:
-            float(str(total_amt).replace(",", ""))
+            val = float(str(total_amt).replace(",", ""))
+            if val < 0:
+                reasons.append("AMBIGUOUS_NEGATIVE_VALUE")
         except ValueError:
-            reasons.append("CORRUPTED_TOTAL_AMOUNT")
+            if "-" in str(total_amt):
+                reasons.append("AMBIGUOUS_NEGATIVE_VALUE")
+            else:
+                reasons.append("UNKNOWN_PRICE")
 
-    # 5. Check for unresolvable corrupted text in status or currency
+    # 5. Invalid or Impossible Date
+    order_date = cleaned_data.get("order_date")
+    if not order_date or str(order_date).strip() == "???":
+        reasons.append("INVALID_IMPOSSIBLE_DATE")
+
+    # 6. Check for unresolvable corrupted text in status or currency
     status_val = str(cleaned_data.get("status", "")).strip()
     if status_val == "حالة غير معروفة تمامًا" or status_val == "???":
         reasons.append("UNRESOLVED_CRITICAL_FIELD")
@@ -57,6 +67,11 @@ def evaluate_record_classification(
     currency_val = str(cleaned_data.get("currency", "")).strip()
     if currency_val == "عملة غير معروفة" or currency_val == "???":
         reasons.append("UNRESOLVED_CRITICAL_FIELD")
+
+    # Rubric: Multiple Conflicting Errors
+    if len(reasons) >= 2:
+        if "MULTIPLE_CONFLICTING_ERRORS" not in reasons:
+            reasons.append("MULTIPLE_CONFLICTING_ERRORS")
 
     # If any quarantine reason was triggered, record goes to QUARANTINE
     if reasons:

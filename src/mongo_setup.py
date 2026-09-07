@@ -23,11 +23,10 @@ def setup_mongodb():
         # 1. Raw Collection Indexes
         # ----------------------------------------------------
         raw_col = db[RAW_COLLECTION]
-        raw_col.drop() # Clear dirty state from previous runs
 
         raw_col.create_index([("metadata.run_id", 1)], name="idx_run_id")
         raw_col.create_index([("metadata.source_file", 1)], name="idx_source_file")
-        raw_col.create_index([("source_data.order_id", 1)], name="idx_order_id")
+        raw_col.create_index([("raw_record.order_id", 1)], name="idx_order_id")
 
         # ----------------------------------------------------
         # 2. Validated Collection Indexes & Schema Validation
@@ -55,7 +54,7 @@ def setup_mongodb():
         quar_col = db[QUARANTINE_COLLECTION]
 
         quar_col.create_index([("metadata.run_id", 1)], name="idx_quar_run_id")
-        quar_col.create_index([("quarantine_reasons", 1)], name="idx_quar_reasons")
+        quar_col.create_index([("error_codes", 1)], name="idx_quar_error_codes")
 
         print("=" * 60)
         print("MONGODB SETUP COMPLETED SUCCESSFULLY")

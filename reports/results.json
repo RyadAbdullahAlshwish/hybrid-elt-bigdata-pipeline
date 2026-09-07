@@ -1,31 +1,42 @@
 {
-  "run_id": "2b970c93488c46818c1e463e8dfbaab2",
-  "timestamp": "2026-08-30T00:25:29Z",
+  "run_id": "6012c0b36cb54859b482cd20bde445bd",
+  "timestamp": "2026-09-07T02:06:09Z",
   "input_file": {
-    "name": "orders_sample_10k.csv",
-    "size_mb": 4.17,
+    "name": "orders_sample_100k.csv",
+    "size_mb": 41.77,
     "engine_used": "python_batch"
   },
   "performance": {
-    "elapsed_seconds": 4.478,
-    "throughput_rows_per_sec": 2233.02
+    "elapsed_seconds": 34.271,
+    "throughput": 2917.9,
+    "batch_size": 1000
   },
   "counts": {
-    "rows_read": 10000,
-    "run_raw_count": 10000,
-    "run_valid_count": 8133,
-    "run_corrected_count": 1359,
-    "run_quarantine_count": 508
+    "rows_read": 100000,
+    "raw_loaded": 100000,
+    "valid_count": 79457,
+    "corrected_count": 15639,
+    "quarantine_count": 4904
   },
   "upsert_stats": {
-    "upsert_inserted": 9408,
-    "upsert_modified": 84
+    "inserted_count": 0,
+    "updated_count": 95096,
+    "unchanged_count": 0
   },
   "consistency_check": {
     "formula": "run_raw_count == run_valid_count + run_corrected_count + run_quarantine_count",
     "is_consistent": true,
-    "raw_count": 10000,
-    "classified_sum": 10000,
+    "raw_count": 100000,
+    "classified_sum": 100000,
     "difference": 0
+  },
+  "error_case_counts": {
+    "MISSING_CUSTOMER_ID": 1411,
+    "CORRUPTED_ITEMS_JSON": 1338,
+    "UNKNOWN_PRICE": 674,
+    "MULTIPLE_CONFLICTING_ERRORS": 674,
+    "UNRESOLVED_CRITICAL_FIELD": 1431,
+    "MISSING_ORDER_ID": 721,
+    "EMPTY_ITEMS": 677
   }
 }

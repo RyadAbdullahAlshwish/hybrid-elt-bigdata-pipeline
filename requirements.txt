@@ -1,0 +1,7 @@
+pyspark==3.5.1
+pymongo==4.7.0
+pytest==8.2.0
+rich
+pyfiglet
+click
+rich-click

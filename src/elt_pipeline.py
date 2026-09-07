@@ -46,7 +46,7 @@ def process_raw_to_validated_and_quarantine(run_id: str) -> Dict[str, Any]:
 
     val_bulk_ops = []
     quar_bulk_ops = []
-    
+
     error_case_counts = {}
 
     # Stream raw records for this run_id
@@ -54,113 +54,115 @@ def process_raw_to_validated_and_quarantine(run_id: str) -> Dict[str, Any]:
     total_processed = 0
     batch_start_time = time.perf_counter()
 
-    for raw_doc in cursor:
-        total_processed += 1
-        source_data = raw_doc.get("source_data", {})
-        metadata = raw_doc.get("metadata", {})
+    try:
+        for raw_doc in cursor:
+            total_processed += 1
+            raw_record = raw_doc.get("raw_record", {})
+            metadata = raw_doc.get("metadata", {})
 
-        # Stage 3: Clean record and generate audit trail
-        cleaned_data, corrections = clean_record_and_generate_audit(source_data)
+            # Stage 3: Clean record and generate audit trail
+            cleaned_data, corrections = clean_record_and_generate_audit(raw_record)
 
-        # Stage 4: Classification
-        status, reasons = evaluate_record_classification(cleaned_data, corrections)
+            # Stage 4: Classification
+            status, reasons = evaluate_record_classification(cleaned_data, corrections)
 
-        ingested_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            ingested_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
-        if status in ["VALID", "CORRECTED"]:
-            if status == "VALID":
-                valid_count += 1
-            else:
-                corrected_count += 1
+            if status in ["VALID", "CORRECTED"]:
+                if status == "VALID":
+                    valid_count += 1
+                else:
+                    corrected_count += 1
 
-            validated_doc = {
-                "order_id": cleaned_data.get("order_id"),
-                "customer_id": cleaned_data.get("customer_id"),
-                "order_date": cleaned_data.get("order_date"),
-                "status": cleaned_data.get("status"),
-                "total_amount": cleaned_data.get("total_amount"),
-                "currency": cleaned_data.get("currency"),
-                "payment_method": cleaned_data.get("payment_method"),
-                "payment_status": cleaned_data.get("payment_status"),
-                "delivery_type": cleaned_data.get("delivery_type"),
-                "delivery_cost": cleaned_data.get("delivery_cost"),
-                "payment_amount": cleaned_data.get("payment_amount"),
-                "customer_email": cleaned_data.get("customer_email"),
-                "customer_phone": cleaned_data.get("customer_phone"),
-                "items_json": cleaned_data.get("items_json"),
-                "quality_status": status,
-                "corrections": corrections,
-                "metadata": {
-                    "run_id": run_id,
-                    "processed_at": ingested_at,
-                    "source_file": metadata.get("source_file"),
-                    "source_row_number": metadata.get("source_row_number"),
-                    "engine_used": metadata.get("engine_used"),
-                },
-            }
+                validated_doc = {
+                    "order_id": cleaned_data.get("order_id"),
+                    "customer_id": cleaned_data.get("customer_id"),
+                    "order_date": cleaned_data.get("order_date"),
+                    "status": cleaned_data.get("status"),
+                    "total_amount": cleaned_data.get("total_amount"),
+                    "currency": cleaned_data.get("currency"),
+                    "payment_method": cleaned_data.get("payment_method"),
+                    "payment_status": cleaned_data.get("payment_status"),
+                    "delivery_type": cleaned_data.get("delivery_type"),
+                    "delivery_cost": cleaned_data.get("delivery_cost"),
+                    "payment_amount": cleaned_data.get("payment_amount"),
+                    "customer_email": cleaned_data.get("customer_email"),
+                    "customer_phone": cleaned_data.get("customer_phone"),
+                    "items_json": cleaned_data.get("items_json"),
+                    "quality_status": status,
+                    "corrections": corrections,
+                    "metadata": {
+                        "run_id": run_id,
+                        "processed_at": ingested_at,
+                        "source_file": metadata.get("source_file"),
+                        "source_row_number": metadata.get("source_row_number"),
+                        "engine_used": metadata.get("engine_used"),
+                    },
+                }
 
-            # Idempotent Upsert operation using order_id as stable business key
-            val_bulk_ops.append(
-                UpdateOne(
-                    {"order_id": cleaned_data.get("order_id")},
-                    {"$set": validated_doc},
-                    upsert=True,
+                # Idempotent Upsert operation using order_id as stable business key
+                val_bulk_ops.append(
+                    UpdateOne(
+                        {"order_id": cleaned_data.get("order_id")},
+                        {"$set": validated_doc},
+                        upsert=True,
+                    )
                 )
-            )
 
-            if len(val_bulk_ops) >= BATCH_SIZE:
-                res = val_col.bulk_write(val_bulk_ops, ordered=False)
-                upsert_inserted += res.upserted_count
-                upsert_modified += res.modified_count
-                upsert_unchanged += (res.matched_count - res.modified_count)
-                val_bulk_ops.clear()
+                if len(val_bulk_ops) >= BATCH_SIZE:
+                    res = val_col.bulk_write(val_bulk_ops, ordered=False)
+                    upsert_inserted += res.upserted_count
+                    upsert_modified += res.modified_count
+                    upsert_unchanged += (res.matched_count - res.modified_count)
+                    val_bulk_ops.clear()
 
-        else:
-            # Quarantine Stage
-            quarantine_count += 1
-            for r in reasons:
-                error_case_counts[r] = error_case_counts.get(r, 0) + 1
-                
-            quarantine_doc = {
-                "quarantine_reasons": reasons,
-                "metadata": {
-                    "run_id": run_id,
-                    "quarantined_at": ingested_at,
-                    "source_file": metadata.get("source_file"),
-                    "source_row_number": metadata.get("source_row_number"),
-                    "engine_used": metadata.get("engine_used"),
-                },
-                "raw_record": source_data,
-                "cleaned_draft": cleaned_data,
-                "corrections": corrections,
-            }
+            else:
+                # Quarantine Stage
+                quarantine_count += 1
+                for r in reasons:
+                    error_case_counts[r] = error_case_counts.get(r, 0) + 1
+                    
+                quarantine_doc = {
+                    "error_codes": reasons,
+                    "metadata": {
+                        "run_id": run_id,
+                        "quarantined_at": ingested_at,
+                        "source_file": metadata.get("source_file"),
+                        "source_row_number": metadata.get("source_row_number"),
+                        "engine_used": metadata.get("engine_used"),
+                    },
+                    "raw_record": raw_record,
+                    "cleaned_draft": cleaned_data,
+                    "corrections": corrections,
+                }
 
-            quar_bulk_ops.append(quarantine_doc)
+                quar_bulk_ops.append(quarantine_doc)
 
-            if len(quar_bulk_ops) >= BATCH_SIZE:
-                quar_col.insert_many(quar_bulk_ops, ordered=False)
-                quar_bulk_ops.clear()
-                
-        # Print progress every 10,000 records
-        if total_processed % 10000 == 0:
-            elapsed = time.perf_counter() - batch_start_time
-            rate = 10000 / elapsed if elapsed > 0 else 0
-            print(f"Processing | Records: {total_processed:>9} | Time: {elapsed:>7.3f}s | Rate: {rate:>10.2f} rows/s")
-            batch_start_time = time.perf_counter()
+                if len(quar_bulk_ops) >= BATCH_SIZE:
+                    quar_col.insert_many(quar_bulk_ops, ordered=False)
+                    quar_bulk_ops.clear()
+                    
+            # Print progress every 10,000 records
+            if total_processed % 10000 == 0:
+                elapsed = time.perf_counter() - batch_start_time
+                rate = 10000 / elapsed if elapsed > 0 else 0
+                print(f"Processing | Records: {total_processed:>9} | Time: {elapsed:>7.3f}s | Rate: {rate:>10.2f} rows/s")
+                batch_start_time = time.perf_counter()
 
-    # Flush remaining ops
-    if val_bulk_ops:
-        res = val_col.bulk_write(val_bulk_ops, ordered=False)
-        upsert_inserted += res.upserted_count
-        upsert_modified += res.modified_count
-        upsert_unchanged += (res.matched_count - res.modified_count)
-        val_bulk_ops.clear()
+        # Flush remaining ops
+        if val_bulk_ops:
+            res = val_col.bulk_write(val_bulk_ops, ordered=False)
+            upsert_inserted += res.upserted_count
+            upsert_modified += res.modified_count
+            upsert_unchanged += (res.matched_count - res.modified_count)
+            val_bulk_ops.clear()
 
-    if quar_bulk_ops:
-        quar_col.insert_many(quar_bulk_ops, ordered=False)
-        quar_bulk_ops.clear()
+        if quar_bulk_ops:
+            quar_col.insert_many(quar_bulk_ops, ordered=False)
+            quar_bulk_ops.clear()
 
-    client.close()
+    finally:
+        client.close()
 
     return {
         "valid_count": valid_count,
@@ -204,11 +206,13 @@ def run_elt_pipeline(file_path: str) -> Dict[str, Any]:
     else:
         # PySpark Loader (Stage 2)
         spark, df = load_csv_with_spark(file_path)
-        # Distributed load to MongoDB via foreachPartition
-        load_res = load_spark_df_to_raw(df, run_id, file_name)
-        rows_read = load_res["rows_read"]
-        raw_loaded = load_res["raw_loaded"]
-        spark.stop()
+        try:
+            # Distributed load to MongoDB via foreachPartition
+            load_res = load_spark_df_to_raw(df, run_id, file_name)
+            rows_read = load_res["rows_read"]
+            raw_loaded = load_res["raw_loaded"]
+        finally:
+            spark.stop()
 
     # Stage 3, 4, 5: Quality, Classification & Idempotent Upsert
     proc_res = process_raw_to_validated_and_quarantine(run_id)
@@ -235,14 +239,22 @@ def run_elt_pipeline(file_path: str) -> Dict[str, Any]:
 
     save_pipeline_reports(metrics)
 
+    valid = proc_res['valid_count']
+    corr = proc_res['corrected_count']
+    quar = proc_res['quarantine_count']
+    total = valid + corr + quar
+    p_valid = (valid / total * 100) if total else 0
+    p_corr = (corr / total * 100) if total else 0
+    p_quar = (quar / total * 100) if total else 0
+
     print("\n" + "=" * 60)
     print("ELT PIPELINE EXECUTION COMPLETED")
     print("=" * 60)
     print(f"Run ID           : {run_id}")
     print(f"Raw Loaded       : {raw_loaded}")
-    print(f"Valid            : {proc_res['valid_count']}")
-    print(f"Corrected        : {proc_res['corrected_count']}")
-    print(f"Quarantine       : {proc_res['quarantine_count']}")
+    print(f"Valid            : {valid}      ({p_valid:.1f}%)")
+    print(f"Corrected        : {corr}       ({p_corr:.1f}%)")
+    print(f"Quarantine       : {quar}       ({p_quar:.1f}%)")
     print(f"Consistency Check: {'PASSED ✅' if metrics['consistency_check']['is_consistent'] else 'FAILED ❌'}")
     print("=" * 60)
 

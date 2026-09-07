@@ -42,14 +42,15 @@ def generate_pipeline_metrics(
         },
         "performance": {
             "elapsed_seconds": round(elapsed_seconds, 3),
-            "throughput_rows_per_sec": throughput,
+            "throughput": throughput,
+            "batch_size": 1000,
         },
         "counts": {
             "rows_read": rows_read,
-            "run_raw_count": raw_loaded,
-            "run_valid_count": valid_count,
-            "run_corrected_count": corrected_count,
-            "run_quarantine_count": quarantine_count,
+            "raw_loaded": raw_loaded,
+            "valid_count": valid_count,
+            "corrected_count": corrected_count,
+            "quarantine_count": quarantine_count,
         },
         "upsert_stats": {
             "inserted_count": upsert_inserted,
@@ -91,17 +92,18 @@ def save_pipeline_reports(metrics: Dict[str, Any]) -> None:
 
 ## ⚡ Performance Metrics
 - **Elapsed Time**: `{metrics['performance']['elapsed_seconds']} s`
-- **Throughput**: `{metrics['performance']['throughput_rows_per_sec']} rows/s`
+- **Throughput**: `{metrics['performance']['throughput']} rows/s`
+- **Batch Size**: `{metrics['performance']['batch_size']}`
 
 ---
 
 ## 📊 Classification Statistics
 | Category | Count | Percentage |
 | :--- | :--- | :--- |
-| **Raw Loaded (`run_raw_count`)** | `{metrics['counts']['run_raw_count']:,}` | 100.0% |
-| **Valid (`run_valid_count`)** | `{metrics['counts']['run_valid_count']:,}` | `{metrics['counts']['run_valid_count'] / max(metrics['counts']['run_raw_count'], 1) * 100:.2f}%` |
-| **Corrected (`run_corrected_count`)** | `{metrics['counts']['run_corrected_count']:,}` | `{metrics['counts']['run_corrected_count'] / max(metrics['counts']['run_raw_count'], 1) * 100:.2f}%` |
-| **Quarantine (`run_quarantine_count`)** | `{metrics['counts']['run_quarantine_count']:,}` | `{metrics['counts']['run_quarantine_count'] / max(metrics['counts']['run_raw_count'], 1) * 100:.2f}%` |
+| **Total Raw** | `{metrics['counts']['raw_loaded']}` | 100% |
+| ✅ **Valid** | `{metrics['counts']['valid_count']}` | `{round(metrics['counts']['valid_count'] / max(1, metrics['counts']['raw_loaded']) * 100, 2)}%` |
+| 🛠️ **Corrected** | `{metrics['counts']['corrected_count']}` | `{round(metrics['counts']['corrected_count'] / max(1, metrics['counts']['raw_loaded']) * 100, 2)}%` |
+| 🚨 **Quarantine** | `{metrics['counts']['quarantine_count']}` | `{round(metrics['counts']['quarantine_count'] / max(1, metrics['counts']['raw_loaded']) * 100, 2)}%` |
 
 ---
 

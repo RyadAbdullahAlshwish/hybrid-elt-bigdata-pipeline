@@ -41,5 +41,6 @@ run.bat
 # ==========================================
 .vscode/
 .idea/
+logs/
 .DS_Store
 Thumbs.db

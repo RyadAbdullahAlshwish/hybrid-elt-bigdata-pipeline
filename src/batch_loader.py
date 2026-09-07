@@ -34,7 +34,7 @@ def load_csv_to_raw(
             "engine_used": "python_batch"
         },
 
-        "source_data": {
+        "raw_record": {
             "order_id": "...",
             "order_date": "...",
             ...
@@ -86,7 +86,7 @@ def load_csv_to_raw(
                         "engine_used": engine_used,
                     },
 
-                    "source_data": dict(row),
+                    "raw_record": dict(row),
                 }
 
                 batch.append(document)
