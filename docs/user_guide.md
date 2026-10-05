@@ -78,4 +78,98 @@ When dealing with massive data, memory crashes (OOM) are a developer's worst nig
 - **Memory Allocation:** I allocated **4GB** of driver memory (`spark.driver.memory`) to ensure smooth shuffling and aggregation.
 - **CSV Parsing Safety:** I implemented strict `escape` characters in the Spark CSV reader to ensure that nested JSON arrays inside the CSV columns are parsed perfectly without breaking the schema.
 
-Thank you for exploring my project! I hope you enjoy using this pipeline as much as I enjoyed building it.
+---
+
+## 7. Phase 2: Running the Evaluation API & Interactive Swagger UI
+
+For the final evaluation phase, the entire platform is accessible via an interactive REST API built with FastAPI and documented via OpenAPI / Swagger UI.
+
+### 7.1. Launching the API Server
+Start the Uvicorn ASGI server with live reloading:
+```powershell
+uvicorn src.api:app --host 127.0.0.1 --port 8000 --reload
+```
+Once started, you will see the startup banner confirming that the **Background Task Scheduler** has initialized successfully:
+```text
+INFO:     Started server process
+🚀 Background Task Scheduler started successfully.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+```
+
+### 7.2. Accessing Interactive Swagger UI
+Open your web browser and go to:
+👉 **[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)**
+
+*(Alternatively, standard ReDoc is available at `http://127.0.0.1:8000/redoc`)*
+
+### 7.3. Step-by-Step Evaluation Walkthrough via Swagger UI
+
+#### 1. System & Health Check (`GET /health`)
+- Click on **`GET /health`** $\rightarrow$ **Try it out** $\rightarrow$ **Execute**.
+- Confirms MongoDB connection status and displays current document counts across all 6 collections (`orders_raw`, `orders_validated`, `orders_quarantine`, `daily_sales_summary`, `top_products_summary`, `job_logs`).
+
+#### 2. Triggering Ingestion (`POST /ingest`)
+- Click on **`POST /ingest`** $\rightarrow$ **Try it out** $\rightarrow$ **Execute**.
+- Triggers the automated ELT pipeline on the default sample data file, ingesting records, applying the 8 quality rules, and writing metrics.
+
+#### 3. Creating Indexes (`POST /indexes`)
+- Click on **`POST /indexes`** $\rightarrow$ **Try it out** $\rightarrow$ **Execute**.
+- Idempotently creates the 3 required indexes on `orders_validated`:
+  - `idx_val_city_status` (Compound: `city` + `status`)
+  - `idx_val_order_date` (`order_date` descending)
+  - `idx_val_customer_id` (`customer_id` ascending)
+
+#### 4. Benchmarking Performance (`GET /indexes/explain`)
+- Click on **`GET /indexes/explain`** $\rightarrow$ **Try it out** $\rightarrow$ **Execute**.
+- Executes `explain("executionStats")` before and after index creation across 3 test queries, returning exact reduction metrics (up to **98.31%** and **100%** document scan reduction).
+
+#### 5. Executing Business Queries (`GET /queries/{name}`)
+- Open **`GET /queries/{name}`** $\rightarrow$ **Try it out**.
+- Select any query from the dropdown menu (e.g., `orders_by_city_and_status`, `customer_order_history`).
+- Optionally specify parameters like `city`, `status`, or `limit`.
+- Click **Execute** to view live JSON results.
+
+#### 6. Running Analytical Aggregations (`GET /aggregations/{name}`)
+- Open **`GET /aggregations/{name}`** $\rightarrow$ **Try it out**.
+- Select any aggregation from the dropdown (e.g., `sales_by_city`, `top_products`, `top_customers`).
+- Click **Execute** to inspect live aggregation results computed by MongoDB's aggregation engine.
+
+#### 7. Materialized Views: Incremental Refresh (`POST /refresh-mv`)
+- Open **`POST /refresh-mv`** $\rightarrow$ **Try it out**.
+- Set `full_refresh` to `false` for smart incremental refresh (only updates newly ingested dates/products based on watermark), or `true` for a complete historical rebuild.
+- Click **Execute**.
+
+#### 8. Reading Materialized Views Directly (`GET /views/{name}`)
+- Open **`GET /views/{name}`** $\rightarrow$ **Try it out**.
+- Select `daily_sales_summary` or `top_products_summary` from the dropdown.
+- Click **Execute** to read pre-aggregated summaries instantly.
+
+#### 9. Scheduled Tasks & Audit Logs (`GET /jobs` & `POST /jobs/{name}/run`)
+- Open **`GET /jobs`** to view all registered background tasks along with their last scheduled run results from `job_logs`.
+- Open **`POST /jobs/{name}/run`**, select a task from the dropdown (e.g., `refresh_materialized_views`), and click **Execute** to trigger it manually on-demand and receive its `log_id`.
+
+---
+
+## 8. Automated Testing & Verification Suites
+
+All test suites are cleanly organized under the [`tests/`](file:///g:/Semestr_7/Amaly/Big%20Data/lec%205/H.W.BigData0v.0.1/tests/) directory:
+
+```powershell
+# 1. Test Indexes, Queries & Explain Plan Analysis
+python tests/test_indexes_and_queries.py
+
+# 2. Test Aggregations, Materialized Views & Scheduled Tasks
+python tests/test_aggregations_and_views.py
+
+# 3. Test Data Quality Rules (Phase 1)
+python -m pytest tests/test_cleaning_rules.py -v
+
+# 4. Test Data Classification Logic (Phase 1)
+python -m pytest tests/test_classification.py -v
+
+# 5. Run All Automated Tests
+pytest tests/ -v
+```
+
+Thank you for exploring my project!
+

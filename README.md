@@ -257,3 +257,168 @@ For a comprehensive breakdown of the execution flow, architecture, and visual pr
 *(Example: The pipeline executing a PySpark job on 30M rows)*
 ![PySpark Execution](screenshots/10_pyspark_30m_terminal.png)
 
+---
+
+# 🌟 Final Project - Phase 2 
+
+This section details the extensions implemented for the final evaluation phase, including practical business queries, compound indexes, execution plan benchmarking, aggregation reports, self-contained materialized views with incremental refresh, scheduled jobs, and a unified evaluation API.
+
+---
+
+## 🚀 Quick Start: Running the Evaluation API
+
+Run the unified FastAPI server with one command:
+```powershell
+uvicorn src.api:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Then open your browser and navigate to the interactive Swagger UI:
+👉 **[http://localhost:8000/docs](http://localhost:8000/docs)**
+
+---
+
+## 📡 API Endpoints Specification
+
+All endpoints return well-formed **JSON** and are fully testable via Swagger UI:
+
+| Endpoint | Method | Category | Description |
+| :--- | :---: | :---: | :--- |
+| **`/health`** | `GET` | System | Checks MongoDB connectivity and displays document counts across all 6 collections. |
+| **`/ingest`** | `POST` | Ingestion | Triggers the original ELT pipeline using the existing ingestion gateway. |
+| **`/indexes`** | `POST` | Performance | Creates the 3 required indexes on `orders_validated`. |
+| **`/indexes/explain`**| `GET` | Performance | Runs `explain("executionStats")` before & after indexes and outputs performance gains. |
+| **`/queries`** | `GET` | Queries | Lists the 5 practical business queries and their supported parameters. |
+| **`/queries/{name}`** | `GET` | Queries | Executes a specific query by name with dynamic parameters (`limit`, `city`, `status`, etc.). |
+| **`/aggregations`** | `GET` | Analytics | Lists the 5 available aggregation reports and their parameters. |
+| **`/aggregations/{name}`** | `GET` | Analytics | Executes a specific aggregation report (e.g., `sales_by_city`, `top_products`) and returns live JSON. |
+| **`/refresh-mv`** | `POST` | Materialized Views | Executes self-contained incremental refresh for `daily_sales_summary` and `top_products_summary`. |
+| **`/views/{name}`** | `GET` | Materialized Views | Reads stored data directly from `daily_sales_summary` or `top_products_summary`. |
+| **`/jobs`** | `GET` | Automation | Lists scheduled tasks and displays the database log of their latest execution. |
+| **`/jobs/{name}/run`** | `POST` | Automation | Manually triggers any registered task by name and logs results to `job_logs`. |
+
+### 🤖 Quick Automated Evaluation & AI Agent Commands (Curl Cheat Sheet)
+
+If you or an AI Agent are evaluating this repository via terminal or automated scripts:
+
+```powershell
+# 1. System Health & Collection Counts
+curl.exe -s http://127.0.0.1:8000/health
+
+# 2. Trigger Ingestion (Original ELT Pipeline)
+curl.exe -s -X POST http://127.0.0.1:8000/ingest
+
+# 3. Create Required 3 Indexes
+curl.exe -s -X POST http://127.0.0.1:8000/indexes
+
+# 4. Run Explain Plan Analysis & Performance Benchmarks
+curl.exe -s http://127.0.0.1:8000/indexes/explain
+
+# 5. List Available Queries
+curl.exe -s http://127.0.0.1:8000/queries
+
+# 6. Execute Named Query (e.g. City & Status)
+curl.exe -s "http://127.0.0.1:8000/queries/orders_by_city_and_status?limit=10"
+
+# 7. List Available Aggregations
+curl.exe -s http://127.0.0.1:8000/aggregations
+
+# 8. Execute Named Aggregation (e.g. Top Products)
+curl.exe -s http://127.0.0.1:8000/aggregations/top_products
+
+# 9. Execute Incremental Materialized Views Refresh
+curl.exe -s -X POST "http://127.0.0.1:8000/refresh-mv?full_refresh=false"
+
+# 10. Read Materialized View Data Directly
+curl.exe -s "http://127.0.0.1:8000/views/daily_sales_summary?limit=10"
+
+# 11. List Scheduled Tasks & Latest Execution Logs
+curl.exe -s http://127.0.0.1:8000/jobs
+
+# 12. Trigger Manual Job Execution (e.g. refresh_materialized_views)
+curl.exe -s -X POST http://127.0.0.1:8000/jobs/refresh_materialized_views/run
+```
+
+---
+
+
+## 🗂️ 1. Queries & Indexes Performance Analysis
+
+### Indexes Created on `orders_validated`:
+1. **Compound Index (`idx_val_city_status`)**: Keys: `[("city", 1), ("status", 1)]`
+   - *Rationale*: Accelerates localized order filtering, converting costly collection scans (`COLLSCAN`) into direct index lookups (`IXSCAN`).
+2. **Chronological Index (`idx_val_order_date`)**: Keys: `[("order_date", -1)]`
+   - *Rationale*: Speeds up date-range queries and eliminates in-memory blocking sorts (`SORT -> COLLSCAN`).
+3. **Customer Index (`idx_val_customer_id`)**: Keys: `[("customer_id", 1)]`
+   - *Rationale*: Enables instant $O(\log N)$ retrieval of purchase histories for specific customers.
+
+### 5 Practical Business Queries Implemented:
+1. `orders_by_city_and_status`: Filters orders by geographic location and status.
+2. `recent_orders_by_date`: Retrieves recent orders chronologically with date-range filters.
+3. `customer_order_history`: Retrieves full order history for a customer ID.
+4. `high_value_orders`: Dynamically filters orders exceeding customizable monetary thresholds.
+5. `orders_by_payment_method_and_status`: Evaluates orders by payment channels and completion statuses.
+
+### Explain Plan Benchmarking Results:
+*Full report available in `reports/explain_results.md` and `reports/explain_results.json`.*
+
+| Query | Target Index | Stage Before | Stage After | Docs Examined (Before $\rightarrow$ After) |
+| :--- | :--- | :---: | :---: | :---: |
+| **City & Status** | `idx_val_city_status` | `COLLSCAN` | `FETCH -> IXSCAN` | Eliminates full table scan |
+| **Date Range & Sort** | `idx_val_order_date` | `SORT -> COLLSCAN` | `FETCH -> IXSCAN` | Eliminates memory sort |
+| **Customer Lookup** | `idx_val_customer_id` | `COLLSCAN` | `FETCH -> IXSCAN` | Direct key lookup |
+
+---
+
+## 📊 2. Aggregation Reports (5 Pipelines)
+
+1. **`sales_by_city`**: Aggregates total revenue, order count, and average order value grouped by city.
+2. **`top_products`**: Unwinds items array/JSON to determine top-selling SKUs by quantity sold and revenue.
+3. **`top_customers`**: Identifies highest-spending VIP customers with total spend and order counts.
+4. **`sales_by_period`**: Analyzes daily revenue trends (basis for `daily_sales_summary`).
+5. **`orders_by_status`**: Generates a matrix of orders grouped by operational status and payment method.
+
+---
+
+## 🔄 3. Materialized Views & Incremental Refresh
+
+Two self-contained Materialized Views are maintained directly in MongoDB:
+1. **`daily_sales_summary`**: Daily rollups of revenue, order volume, and average order size.
+2. **`top_products_summary`**: Product-level rollups of total quantity sold, revenue, and order occurrences.
+
+### Incremental Refresh Mechanism:
+- Views track their own watermark via a per-document `last_updated_at` field.
+- When `POST /refresh-mv` is invoked, only orders processed after the latest watermark (`metadata.processed_at > watermark`) are fetched.
+- Atomic `UpdateOne(..., upsert=True)` and `$inc` operators merge new increments without dropping or rebuilding historical data from scratch.
+
+---
+
+## ⏰ 4. Scheduled Jobs & Execution Logging
+
+Two automated background tasks run periodically and can also be triggered on-demand via `POST /jobs/{name}/run`:
+1. **`refresh_materialized_views`**: Periodic incremental refresh of materialized views (Runs every 10 min).
+2. **`generate_periodic_metrics`**: Compiles periodic executive analytics reports (Runs every 30 min).
+
+### Execution Audit Logging (`job_logs`):
+Every execution logs an immutable document in MongoDB `job_logs`:
+- `job_name`, `trigger_type` (`SCHEDULED` vs `MANUAL`)
+- `start_time`, `end_time`, `elapsed_ms`
+- `status` (`SUCCESS` or `FAILED`)
+- `result` / `error_message`
+
+---
+
+## 🧪 Verification & Testing Scripts
+
+Run the standalone verification suites in PowerShell:
+```powershell
+# 1. Test Queries, Indexes, and Explain Plan
+python tests/test_indexes_and_queries.py
+
+# 2. Test Aggregations, Materialized Views, and Scheduled Jobs
+python tests/test_aggregations_and_views.py
+
+# 3. Run all unit and integration tests with PyTest
+pytest tests/ -v
+```
+
+

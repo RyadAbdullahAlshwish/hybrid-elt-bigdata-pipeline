@@ -1,15 +1,15 @@
 # Pipeline Execution Summary Report
 
-- **Run ID**: `6012c0b36cb54859b482cd20bde445bd`
-- **Timestamp**: `2026-09-07T02:06:09Z`
+- **Run ID**: `6fb502a929a34581bf050e80d28599d9`
+- **Timestamp**: `2026-10-05T01:46:22Z`
 - **Input File**: `orders_sample_100k.csv` (41.77 MB)
 - **Engine Used**: `python_batch`
 
 ---
 
 ## ⚡ Performance Metrics
-- **Elapsed Time**: `34.271 s`
-- **Throughput**: `2917.9 rows/s`
+- **Elapsed Time**: `30.824 s`
+- **Throughput**: `3244.26 rows/s`
 - **Batch Size**: `1000`
 
 ---

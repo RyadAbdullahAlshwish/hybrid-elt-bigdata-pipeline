@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 
@@ -43,14 +44,16 @@ BATCH_SIZE = 1000
 # MongoDB
 # ============================================================
 
-MONGO_URI = "mongodb://localhost:27017"
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 
-MONGO_DATABASE = "midterm_data_pipeline"
-# MONGO_DATABASE = "orders_sample_100k"
+MONGO_DATABASE = os.getenv("MONGO_DATABASE", "midterm_data_pipeline")
 
-RAW_COLLECTION = "orders_raw"
-VALIDATED_COLLECTION = "orders_validated"
-QUARANTINE_COLLECTION = "orders_quarantine"
+RAW_COLLECTION = os.getenv("RAW_COLLECTION", "orders_raw")
+VALIDATED_COLLECTION = os.getenv("VALIDATED_COLLECTION", "orders_validated")
+QUARANTINE_COLLECTION = os.getenv("QUARANTINE_COLLECTION", "orders_quarantine")
+MV_DAILY_SALES = os.getenv("MV_DAILY_SALES", "daily_sales_summary")
+MV_TOP_PRODUCTS = os.getenv("MV_TOP_PRODUCTS", "top_products_summary")
+JOB_LOGS_COLLECTION = os.getenv("JOB_LOGS_COLLECTION", "job_logs")
 
 
 # ============================================================

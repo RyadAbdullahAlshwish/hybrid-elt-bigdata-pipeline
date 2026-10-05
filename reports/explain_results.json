@@ -1,0 +1,97 @@
+{
+  "analysis_timestamp": "2026-10-05T02:02:05Z",
+  "collection": "orders_validated",
+  "total_queries_analyzed": 3,
+  "comparisons": [
+    {
+      "query_id": "query_1_compound",
+      "query_name": "استعلام المدينة والحالة (Compound Query)",
+      "target_index": "idx_val_city_status",
+      "rationale": "يستهدف الفهرس المركب (city, status) لتقليل فحص المستندات لمستوى الصفر تقريباً لغير المطابق.",
+      "filter": {
+        "city": "تعز",
+        "status": "مؤكد"
+      },
+      "before": {
+        "execution_time_millis": 59,
+        "total_docs_examined": 94447,
+        "total_keys_examined": 0,
+        "n_returned": 1592,
+        "stage": "COLLSCAN",
+        "index_name": "None (Full Scan)"
+      },
+      "after": {
+        "execution_time_millis": 4,
+        "total_docs_examined": 1592,
+        "total_keys_examined": 1592,
+        "n_returned": 1592,
+        "stage": "FETCH -> IXSCAN",
+        "index_name": "idx_val_city_status"
+      },
+      "docs_examined_reduction": 92855,
+      "docs_examined_reduction_pct": "98.31%",
+      "time_reduction_ms": 55,
+      "performance_gain": "استجابة فورية باستخدام الفهرس بدلاً من المسح الشامل"
+    },
+    {
+      "query_id": "query_2_date_range",
+      "query_name": "استعلام أحدث الطلبات حسب التاريخ (Date Range & Sort)",
+      "target_index": "idx_val_order_date",
+      "rationale": "يستهدف فهرس التاريخ (order_date) لتسريع الفرز واسترجاع الأحدث دون ترتيب مكلف في الذاكرة.",
+      "filter": {
+        "order_date": {
+          "$gte": "2025-01-01"
+        }
+      },
+      "before": {
+        "execution_time_millis": 269,
+        "total_docs_examined": 94447,
+        "total_keys_examined": 0,
+        "n_returned": 93731,
+        "stage": "SORT -> COLLSCAN",
+        "index_name": "None (Full Scan)"
+      },
+      "after": {
+        "execution_time_millis": 216,
+        "total_docs_examined": 93731,
+        "total_keys_examined": 93731,
+        "n_returned": 93731,
+        "stage": "FETCH -> IXSCAN",
+        "index_name": "idx_val_order_date"
+      },
+      "docs_examined_reduction": 716,
+      "docs_examined_reduction_pct": "0.76%",
+      "time_reduction_ms": 53,
+      "performance_gain": "استجابة فورية باستخدام الفهرس بدلاً من المسح الشامل"
+    },
+    {
+      "query_id": "query_3_customer",
+      "query_name": "استعلام سجل طلبات عميل محدد (Customer History)",
+      "target_index": "idx_val_customer_id",
+      "rationale": "يستهدف فهرس العميل (customer_id) للوصول الفوري لسجل مشتريات العميل.",
+      "filter": {
+        "customer_id": "عميل-0"
+      },
+      "before": {
+        "execution_time_millis": 56,
+        "total_docs_examined": 94447,
+        "total_keys_examined": 0,
+        "n_returned": 1,
+        "stage": "COLLSCAN",
+        "index_name": "None (Full Scan)"
+      },
+      "after": {
+        "execution_time_millis": 1,
+        "total_docs_examined": 1,
+        "total_keys_examined": 1,
+        "n_returned": 1,
+        "stage": "FETCH -> IXSCAN",
+        "index_name": "idx_val_customer_id"
+      },
+      "docs_examined_reduction": 94446,
+      "docs_examined_reduction_pct": "100.0%",
+      "time_reduction_ms": 55,
+      "performance_gain": "استجابة فورية باستخدام الفهرس بدلاً من المسح الشامل"
+    }
+  ]
+}
